@@ -229,9 +229,16 @@ Error EditorSceneImporterGLTF::_parse_scenes(GLTFState &state) {
 
 	ERR_FAIL_COND_V(!state.json.has("scenes"), ERR_FILE_CORRUPT);
 	const Array &scenes = state.json["scenes"];
-	ERR_FAIL_COND_V(!scenes.size(), ERR_FILE_CORRUPT);
-	for (int i = 0; i < 1; i++) { //only first scene is imported
-		const Dictionary &s = scenes[i];
+	int loaded_scene = 0;
+	if (state.json.has("scene")) {
+		loaded_scene = state.json["scene"];
+	} else {
+		WARN_PRINT("The load-time scene is not defined in the glTF2 file. Picking the first scene.")
+	}
+
+	if (scenes.size()) {
+		ERR_FAIL_COND_V(loaded_scene >= scenes.size(), ERR_FILE_CORRUPT);
+		const Dictionary &s = scenes[loaded_scene];
 		ERR_FAIL_COND_V(!s.has("nodes"), ERR_UNAVAILABLE);
 		const Array &nodes = s["nodes"];
 		for (int j = 0; j < nodes.size(); j++) {
@@ -2136,7 +2143,6 @@ Error EditorSceneImporterGLTF::_create_skeletons(GLTFState &state) {
 
 			skeleton->add_bone(node->name);
 			skeleton->set_bone_rest(bone_index, node->xform);
-			skeleton->set_bone_pose(bone_index, node->xform);
 
 			if (node->parent >= 0 && state.nodes[node->parent]->skeleton == skel_i) {
 				const int bone_parent = skeleton->find_bone(state.nodes[node->parent]->name);
@@ -2317,7 +2323,7 @@ Error EditorSceneImporterGLTF::_parse_animations(GLTFState &state) {
 		Array samplers = d["samplers"];
 
 		if (d.has("name")) {
-			animation.name = d["name"];
+			animation.name = _sanitize_scene_name(d["name"]);
 		}
 
 		for (int j = 0; j < channels.size(); j++) {
